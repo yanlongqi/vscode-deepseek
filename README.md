@@ -10,12 +10,19 @@ This extension allows you to interact with the DeepSeek models for Github Copilo
 
 ## How to use
 
-1. Install the extension
+1. Install the extension from the Visual Studio Code Marketplace
 2. Open Github Copilot Chat panel
 3. In the chat, type `@deepseek` followed by your prompt
 
 > [!NOTE] 
 > During the first run, the extension will download the model. This may take a few minutes.
+
+## Build from source
+
+1. Clone this repository
+2. Run `npm install`
+3. Run `npm run package`
+4. Install the generated `.vsix` file in Visual Studio Code
 
 ## Settings
 
