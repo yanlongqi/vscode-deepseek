@@ -36,7 +36,7 @@
 			"properties": {
 				"deepseek.model.name": {
 					"type": "string",
-					"default": "deepseek-coder-v2",
+					"default": "deepseek-coder:1.3b",
 					"description": "The model name to use for DeepSeek"
 				}
 			}
