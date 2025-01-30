@@ -4,10 +4,10 @@
 	"publisher": "wassimdev",
 	"icon": "deepseek.png",
 	"displayName": "DeepSeek for GitHub Copilot",
-	"description": "Run DeepSeek agent in your GitHub Copilot chat",
-	"version": "0.0.2",
+	"description": "Run DeepSeek models in your GitHub Copilot Chat",
+	"version": "0.0.3",
 	"galleryBanner": {
-        "color": "#4C91F8",
+        "color": "#ffffff",
         "theme": "light"
     },
 	"author": {
