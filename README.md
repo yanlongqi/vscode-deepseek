@@ -38,6 +38,11 @@ You can configure the extension by opening the settings panel (or `settings.json
 > [!NOTE] 
 > You can find a list of available DeepSeek models at [ollama.com](https://ollama.com/search?q=deepseek).
 
+## Limitations
+
+Currently, the extension does not have access to your files, so it cannot provide context-aware completions. This will be fixed in future versions.
+
+To remedy this, you can copy the code you want to complete and paste it in the chat.
 
 ## Requirements
 
