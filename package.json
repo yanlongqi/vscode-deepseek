@@ -27,7 +27,8 @@
 				"id": "dev.wassim.agents.deepseek",
 				"fullName": "DeepSeek",
 				"name": "deepseek",
-				"description": "I am your DeepSeek assistant"
+				"description": "I am your DeepSeek assistant",
+				"isSticky": true
 			}
 		],
 		"configuration": {
