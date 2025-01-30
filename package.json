@@ -1,12 +1,33 @@
 {
 	"name": "vscode-deepseek",
+	"preview": true,
+	"publisher": "wassimdev",
+	"icon": "deepseek.png",
 	"displayName": "DeepSeek Agent",
 	"description": "Run DeepSeek agent in your GitHub Copilot chat",
 	"version": "0.0.1",
+	"galleryBanner": {
+        "color": "#4C91F8",
+        "theme": "light"
+    },
 	"author": {
 		"name": "Wassim Chegham",
 		"email": "github@wassim.dev"
 	},
+	"homepage": "https://github.com/manekinekko/vscode-deepseek/blob/main/README.md",
+	"bugs": {
+        "url": "https://github.com/manekinekko/vscode-deepseek/issues"
+    },
+	"keywords": [
+        "deepseek",
+		"copilot",
+		"chat",
+		"agent",
+		"assistant",
+		"ai",
+		"model",
+		"nlp"
+    ],
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/manekinekko/vscode-deepseek"
