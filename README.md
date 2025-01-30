@@ -1,5 +1,5 @@
 <p align="center">
-<h1 align="center">DeepSeek Agent for Github Copilot Chat Extension</h1>
+<h1 align="center">DeepSeek Agent for Github Copilot Chat</h1>
 </p>
 <p align="center">
 <img src="deepseek.png" alt="DeepSeek" width="200"/>
@@ -41,5 +41,5 @@ You can configure the extension by opening the settings panel (or `settings.json
 
 ## Requirements
 
-This extension requires the Ollama model to be installed. You can install it by following the instructions from [ollama.com](https://ollama.com/).
+This extension requires the Ollama app to be installed on your system. You can install it by following the instructions from [ollama.com](https://ollama.com/).
 
