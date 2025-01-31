@@ -1,10 +1,17 @@
 <p align="center">
-<h1 align="center">DeepSeek Agent for Github Copilot Chat</h1>
+<h1 align="center">DeepSeek Agent for Github Copilot<img src="preview.png" width="80"/></h1>
 </p>
 <p align="center">
 <img src="deepseek.png" alt="DeepSeek" width="200"/>
 </p>
 
+<h3 align="center">
+    <a href="https://marketplace.visualstudio.com/items?itemName=wassimdev.wassimdev-vscode-deepseek" alt="Marketplace version">
+        <img src="https://img.shields.io/visual-studio-marketplace/v/wassimdev.wassimdev-vscode-deepseek?label=VS%20Code%20Marketplace&style=flat-square" />
+    </a>
+    <img alt="GitHub License" src="https://img.shields.io/github/license/manekinekko/vscode-deepseek?style=flat-square"/>
+    <img alt="Static Badge" src="https://img.shields.io/badge/version-preview-pink?style=flat-square"/>
+</h3>
 
 This extension allows you to interact with the DeepSeek models for Github Copilot Chat, fully locally and offline. It uses Ollama under the hood to provide a seamless experience.
 
@@ -13,6 +20,8 @@ This extension allows you to interact with the DeepSeek models for Github Copilo
 1. Install the extension from the Visual Studio Code Marketplace
 2. Open Github Copilot Chat panel
 3. In the chat, type `@deepseek` followed by your prompt
+
+![demo](./deepseek-vscode-demo.png)
 
 > [!NOTE] 
 > During the first run, the extension will download the model. This may take a few minutes.
