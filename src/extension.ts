@@ -90,6 +90,7 @@ async function agentHandler(
   stream: vscode.ChatResponseStream
 ): Promise<IAgentChatResult> {
   try {
+    const tools = await getTools();
     const model = readModelFromConfig();
 
     await assertOllamaRunning(stream);
@@ -107,7 +108,7 @@ async function agentHandler(
       },
     ];
 
-    const chatResponse = await streamResponse(model, messages);
+    const chatResponse = await streamResponse(model, messages, tools);
     for await (const fragment of chatResponse) {
       // Process the output from the language model
       console.log({ fragment });
@@ -117,7 +118,6 @@ async function agentHandler(
     handleError(logger, err, stream);
   }
 
-  logger.logUsage("request", { kind: "" });
   return { metadata: { command: "" } };
 }
 
@@ -131,20 +131,12 @@ function handleError(
   // - user consent not given
   // - quote limits exceeded
   logger.logError(err);
-
-  if (err instanceof vscode.LanguageModelError) {
-    console.log(err.message, err.code, err.cause);
-    if (err.cause instanceof Error && err.cause.message.includes("off_topic")) {
-      stream.markdown(
-        vscode.l10n.t(
-          "I'm sorry, I can't help with that. Can I help with something else?"
-        )
-      );
-    }
-  } else {
-    // re-throw other errors so they show up in the UI
-    throw err;
-  }
+  console.log(err.message, err.code, err.cause);
+  stream.markdown(
+    vscode.l10n.t(
+      "I'm sorry, I can't help with that. Can I help with something else?"
+    )
+  );
 }
 
 function appendAssistantHistory(context: vscode.ChatContext) {
@@ -180,15 +172,20 @@ function appendAssistantHistory(context: vscode.ChatContext) {
   return messages;
 }
 
-async function* streamResponse(model: string, messages: Message[]) {
+async function* streamResponse(model: string, messages: Message[], tools: any) {
   try {
     console.log("Using model:", model);
     console.log(`${OLLAMA_HOST}/api/chat`);
     console.log({ messages });
+    console.log({ tools });
 
     const response = await ollama.chat({
       model,
       messages,
+      
+      // TODO: enable function calls when DeepSeek supports it
+      // tools,
+
       stream: true,
     });
 
@@ -196,7 +193,7 @@ async function* streamResponse(model: string, messages: Message[]) {
       yield chunk;
     }
   } catch (err: any) {
-    console.error("Error:", err.message);
+    console.error(err.message);
   }
 }
 
@@ -214,6 +211,23 @@ async function registerParticipant(context: vscode.ExtensionContext) {
       });
     })
   );
+}
+
+async function getTools() {
+  const tools = vscode.lm.tools.map(
+    (tool: vscode.LanguageModelToolInformation) => {
+      return {
+        type: "function",
+        function: {
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.inputSchema,
+        },
+      };
+    }
+  );
+  console.log({ tools });
+  return tools;
 }
 
 export function activate(context: vscode.ExtensionContext) {
