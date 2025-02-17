@@ -5,7 +5,7 @@
 	"icon": "deepseek.png",
 	"displayName": "DeepSeek for GitHub Copilot",
 	"description": "Run DeepSeek models in your GitHub Copilot Chat",
-	"version": "0.0.3",
+	"version": "0.0.4",
 	"galleryBanner": {
         "color": "#ffffff",
         "theme": "light"
@@ -59,6 +59,11 @@
 					"type": "string",
 					"default": "deepseek-coder:1.3b",
 					"description": "The model name to use for DeepSeek"
+				},
+				"deepseek.ollama.host": {
+					"type": "string",
+					"default": "http://localhost:11434",
+					"description": "The Ollama host to use for DeepSeek"
 				}
 			}
 		}

@@ -41,6 +41,7 @@ You can configure the extension by opening the settings panel (or `settings.json
 
 {
     "deepseek.model.name": "deepseek-coder:1.3b",
+    "deepseek.ollama.host": "http://localhost:11434"
 }
 ```
 

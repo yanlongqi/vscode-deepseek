@@ -1,10 +1,11 @@
-import ollama, { Message } from "ollama";
+import { Ollama, Message } from "ollama";
 import * as vscode from "vscode";
 
 const AGENT_PARTICIPANT_ID = "dev.wassim.agents.deepseek";
-const BASE_PROMPT = `You a helpfull assistant.`;
+const BASE_PROMPT = `You are a helpful assistant.`;
 const OLLAMA_HOST = "http://localhost:11434";
 const MODEL = "deepseek-coder:1.3b";
+const HIDDEN_ERROR_MESSAGE_PLACEHOLDER = "&nbsp;";
 
 interface IAgentChatResult extends vscode.ChatResult {
   metadata: {
@@ -25,17 +26,12 @@ const logger = vscode.env.createTelemetryLogger({
   },
 });
 
-export async function assertOllamaRunning(stream: vscode.ChatResponseStream) {
-  try {
-    await ollama.ps();
-  } catch (err: any) {
-    throw Error(
-      `To run DeepSeek models locally and offline, Ollama server must be installed and started. Visit https://ollama.com for more information.`
-    );
-  }
+export async function assertOllamaRunning(ollama: Ollama, stream: vscode.ChatResponseStream) {
+  await ollama.ps();
 }
 
 async function assertPullModel(
+  ollama: Ollama,
   model: string,
   stream: vscode.ChatResponseStream
 ) {
@@ -44,11 +40,11 @@ async function assertPullModel(
     stream.progress(`Model ${model} not found.\n`);
     stream.progress(`Installing model.\n`);
     stream.progress(`This might take a few minutes.\n`);
-    await pullModel(model, stream);
+    await pullModel(ollama, model, stream);
   }
 }
 
-async function pullModel(model: string, stream: vscode.ChatResponseStream) {
+async function pullModel(ollama: Ollama, model: string, stream: vscode.ChatResponseStream) {
   console.log(`Pulling latest model ${model}'s manifest...`);
   let currentDigestDone = false;
 
@@ -81,6 +77,11 @@ function readModelFromConfig() {
   return (workbenchConfig.get("model.name") ?? MODEL) as string;
 }
 
+function readOllamaHostFromConfig() {
+  const workbenchConfig = vscode.workspace.getConfiguration("deepseek");
+  return (workbenchConfig.get("ollama.host") ?? OLLAMA_HOST) as string;
+}
+
 // To talk to an LLM in your subcommand handler implementation, your
 // extension can use VS Code's `requestChatAccess` API to access the Copilot API.
 // The GitHub Copilot Chat extension implements this provider.
@@ -92,9 +93,10 @@ async function agentHandler(
   try {
     const tools = await getTools();
     const model = readModelFromConfig();
+    const ollama = new Ollama({ host: readOllamaHostFromConfig() });
 
-    await assertOllamaRunning(stream);
-    await assertPullModel(model, stream);
+    await assertOllamaRunning(ollama, stream);
+    await assertPullModel(ollama, model, stream);
 
     const messages = [
       {
@@ -108,10 +110,9 @@ async function agentHandler(
       },
     ];
 
-    const chatResponse = await streamResponse(model, messages, tools);
+    const chatResponse = await streamResponse(ollama, model, messages, tools);
     for await (const fragment of chatResponse) {
       // Process the output from the language model
-      console.log({ fragment });
       stream.markdown(fragment.message.content);
     }
   } catch (err) {
@@ -131,23 +132,36 @@ function handleError(
   // - user consent not given
   // - quote limits exceeded
   logger.logError(err);
-  console.log(err.message, err.code, err.cause);
-  stream.markdown(
-    vscode.l10n.t(
-      "I'm sorry, I can't help with that. Can I help with something else?"
-    )
-  );
+  console.log({err});
+
+  if (err.code === "ERR_INVALID_URL" || err.cause?.code === "ECONNREFUSED") {
+    const host = readOllamaHostFromConfig();
+    stream.markdown(
+      vscode.l10n.t(
+        // we use a placeholder to identify error messages
+        // this placeholder will be ignored by markdown rendering
+        HIDDEN_ERROR_MESSAGE_PLACEHOLDER+"I'm sorry, I cannot connect to the Ollama server.\n\n"+
+        "Please check the following:\n\n"+
+        `- The Ollama app is installed and running. Visit [ollama.com](https://ollama.com) for more details.\n`+
+        `- The Ollama server is running at [${host}](${host})\n`+
+        "- The Ollama server URL is correct in your [settings.json](https://code.visualstudio.com/docs/getstarted/settings): `deepseek.ollama.host` \n"+
+        "- The Ollama server is accessible from this network.\n\n"+
+        `Here is the error message: \`${err.message} (code: ${(err.code || err.cause?.code) || 'UNKNOWN'})\``
+      )
+    );
+  }
+  else {
+    stream.markdown(
+      vscode.l10n.t(
+        "I'm sorry, I can't help with that. Can I help with something else?"
+      )
+    );
+  }
+
 }
 
 function appendAssistantHistory(context: vscode.ChatContext) {
   const messages: any[] = [];
-  // get all the previous participant messages
-
-  const previousMessages = context.history.filter(
-    (h) => h instanceof vscode.ChatResponseTurn
-  );
-  console.log(previousMessages);
-
   // add the previous messages to the messages array
   context.history.forEach((m) => {
     let fullMessage = "";
@@ -155,12 +169,20 @@ function appendAssistantHistory(context: vscode.ChatContext) {
     if (m instanceof vscode.ChatResponseTurn) {
       m.response.forEach((r) => {
         const mdPart = r as vscode.ChatResponseMarkdownPart;
-        fullMessage += mdPart.value.value;
+        const {value} = mdPart.value;
+
+        // skip error messages
+        if (!value.startsWith(HIDDEN_ERROR_MESSAGE_PLACEHOLDER)) {
+          fullMessage += value;
+        }
       });
-      messages.push({
-        role: "assistant",
-        content: fullMessage,
-      });
+
+      if (fullMessage) {
+        messages.push({
+          role: "assistant",
+          content: fullMessage,
+        });
+      }
     } else if (m instanceof vscode.ChatRequestTurn) {
       messages.push({
         role: "user",
@@ -172,10 +194,10 @@ function appendAssistantHistory(context: vscode.ChatContext) {
   return messages;
 }
 
-async function* streamResponse(model: string, messages: Message[], tools: any) {
+async function* streamResponse(ollama: Ollama, model: string, messages: Message[], tools: any) {
   try {
     console.log("Using model:", model);
-    console.log(`${OLLAMA_HOST}/api/chat`);
+    console.log(`${readOllamaHostFromConfig()}/api/chat`);
     console.log({ messages });
     console.log({ tools });
 
@@ -226,7 +248,6 @@ async function getTools() {
       };
     }
   );
-  console.log({ tools });
   return tools;
 }
 
