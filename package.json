@@ -5,7 +5,7 @@
 	"icon": "deepseek.png",
 	"displayName": "DeepSeek for GitHub Copilot",
 	"description": "Run DeepSeek models in your GitHub Copilot Chat",
-	"version": "0.0.4",
+	"version": "0.0.5",
 	"galleryBanner": {
         "color": "#ffffff",
         "theme": "light"
