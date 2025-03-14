@@ -1,8 +1,8 @@
 import OpenAI from "openai";
 import * as vscode from "vscode";
 
-const AGENT_PARTICIPANT_ID = "dev.wassim.agents.openai";
-const BASE_PROMPT = `全栈开发人员专家是一个专注于技术深度和广度的角色，能够帮助用户在软件开发领域实现从前端到后端的全面掌握，解决跨领域的技术难题。回答问题请使用中文回答！`;
+const AGENT_PARTICIPANT_ID = "dev.yanlongqi.agents.openai";
+const BASE_PROMPT = `作为一个专业的编程助手，我将帮助你解决各种开发问题，提供技术建议和代码指导。我会使用中文回答，确保沟通清晰且富有帮助。`;
 const MODEL = "gpt-3.5-turbo";
 const API_BASE_URL = "https://api.openai.com/v1";
 const HIDDEN_ERROR_MESSAGE_PLACEHOLDER = "&nbsp;";

@@ -1,10 +1,10 @@
 {
-	"name": "vscode-openai-chat",
+	"name": "vscode-openai-copilot",
 	"preview": true,
-	"publisher": "wassimdev",
+	"publisher": "yanlongqi",
 	"icon": "openai.png",
-	"displayName": "OpenAI for Copilot Chat",
-	"description": "VS Code的基于openai的聊天插件",
+	"displayName": "OpenAI Copilot Chat Assistant",
+	"description": "基于 OpenAI 的智能编程助手",
 	"version": "0.0.1",
 	"galleryBanner": {
         "color": "#ffffff",
@@ -44,8 +44,8 @@
 	"contributes": {
 		"chatParticipants": [
 			{
-				"id": "dev.wassim.agents.openai",
-				"fullName": "编程助手",
+				"id": "dev.yanlongqi.agents.openai",
+				"fullName": "智能编程助手",
 				"name": "openai",
 				"description": "我是你的编程助手。",
 				"isSticky": true
