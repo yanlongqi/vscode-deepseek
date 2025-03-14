@@ -1,10 +1,10 @@
-import { Ollama, Message } from "ollama";
+import OpenAI from "openai";
 import * as vscode from "vscode";
 
-const AGENT_PARTICIPANT_ID = "dev.wassim.agents.deepseek";
-const BASE_PROMPT = `You are a helpful assistant.`;
-const OLLAMA_HOST = "http://localhost:11434";
-const MODEL = "deepseek-coder:1.3b";
+const AGENT_PARTICIPANT_ID = "dev.wassim.agents.openai";
+const BASE_PROMPT = `全栈开发人员专家是一个专注于技术深度和广度的角色，能够帮助用户在软件开发领域实现从前端到后端的全面掌握，解决跨领域的技术难题。回答问题请使用中文回答！`;
+const MODEL = "gpt-3.5-turbo";
+const API_BASE_URL = "https://api.openai.com/v1";
 const HIDDEN_ERROR_MESSAGE_PLACEHOLDER = "&nbsp;";
 
 interface IAgentChatResult extends vscode.ChatResult {
@@ -26,60 +26,45 @@ const logger = vscode.env.createTelemetryLogger({
   },
 });
 
-export async function assertOllamaRunning(ollama: Ollama, stream: vscode.ChatResponseStream) {
-  await ollama.ps();
+type Message = OpenAI.Chat.ChatCompletionMessageParam;
+
+function readModelFromConfig() {
+  const workbenchConfig = vscode.workspace.getConfiguration("openai");
+  return (workbenchConfig.get("chat.model") ?? MODEL) as string;
 }
 
-async function assertPullModel(
-  ollama: Ollama,
+function readBaseUrlFromConfig() {
+  const workbenchConfig = vscode.workspace.getConfiguration("openai");
+  return (workbenchConfig.get("api.baseUrl") ?? API_BASE_URL) as string;
+}
+
+function readApiKeyFromConfig() {
+  const workbenchConfig = vscode.workspace.getConfiguration("openai");
+  const apiKey = workbenchConfig.get("api.key") as string;
+  if (!apiKey) {
+    throw new Error("请在设置中配置 OpenAI API Key (openai.api.key)");
+  }
+  return apiKey;
+}
+
+export async function assertApiRunning(client: OpenAI, stream: vscode.ChatResponseStream) {
+  try {
+    await client.models.list();
+  } catch (error) {
+    throw new Error("API 服务未运行或密钥无效");
+  }
+}
+
+async function assertModelAvailable(
+  client: OpenAI,
   model: string,
   stream: vscode.ChatResponseStream
 ) {
-  const { models } = await ollama.list();
-  if (!models.map((m) => m.name).filter((m) => m.startsWith(model)).length) {
-    stream.progress(`Model ${model} not found.\n`);
-    stream.progress(`Installing model.\n`);
-    stream.progress(`This might take a few minutes.\n`);
-    await pullModel(ollama, model, stream);
+  const models = await client.models.list();
+  if (!models.data.find(m => m.id === model)) {
+    stream.progress(`未找到模型 ${model}\n`);
+    throw new Error(`模型 ${model} 不可用`);
   }
-}
-
-async function pullModel(ollama: Ollama, model: string, stream: vscode.ChatResponseStream) {
-  console.log(`Pulling latest model ${model}'s manifest...`);
-  let currentDigestDone = false;
-
-  const response = await ollama.pull({ model: model, stream: true });
-  for await (const part of response) {
-    if (part.digest) {
-      let percent = 0;
-      if (part.completed && part.total) {
-        percent = Math.round((part.completed / part.total) * 100);
-      }
-      process.stdout.write(`${part.status} ${percent}%...`); // Write the new text
-      if (percent === 100 && !currentDigestDone) {
-        console.log(); // Output to a new line
-        currentDigestDone = true;
-      } else {
-        currentDigestDone = false;
-      }
-    } else {
-      stream.progress(`${part.status}...\n`);
-      console.log(part.status);
-    }
-  }
-
-  stream.progress("Download complete!\n");
-  console.log("Download complete!");
-}
-
-function readModelFromConfig() {
-  const workbenchConfig = vscode.workspace.getConfiguration("deepseek");
-  return (workbenchConfig.get("model.name") ?? MODEL) as string;
-}
-
-function readOllamaHostFromConfig() {
-  const workbenchConfig = vscode.workspace.getConfiguration("deepseek");
-  return (workbenchConfig.get("ollama.host") ?? OLLAMA_HOST) as string;
 }
 
 // To talk to an LLM in your subcommand handler implementation, your
@@ -93,14 +78,14 @@ async function agentHandler(
   try {
     const tools = await getTools();
     const model = readModelFromConfig();
-    const ollama = new Ollama({ host: readOllamaHostFromConfig() });
+    const client = new OpenAI({
+      apiKey: readApiKeyFromConfig(),
+      baseURL: readBaseUrlFromConfig()
+    });
 
-    await assertOllamaRunning(ollama, stream);
-    await assertPullModel(ollama, model, stream);
-
-    const messages = [
+    const messages: Message[] = [
       {
-        role: "user",
+        role: "system",
         content: BASE_PROMPT,
       },
       ...appendAssistantHistory(context),
@@ -110,10 +95,11 @@ async function agentHandler(
       },
     ];
 
-    const chatResponse = await streamResponse(ollama, model, messages, tools);
-    for await (const fragment of chatResponse) {
-      // Process the output from the language model
-      stream.markdown(fragment.message.content);
+    const chatResponse = await streamResponse(client, model, messages, tools);
+    for await (const chunk of chatResponse) {
+      if (chunk.choices[0]?.delta?.content) {
+        stream.markdown(chunk.choices[0].delta.content);
+      }
     }
   } catch (err) {
     handleError(logger, err, stream);
@@ -127,37 +113,30 @@ function handleError(
   err: any,
   stream: vscode.ChatResponseStream
 ): void {
-  // making the chat request might fail because
-  // - model does not exist
-  // - user consent not given
-  // - quote limits exceeded
   logger.logError(err);
   console.log({err});
 
   if (err.code === "ERR_INVALID_URL" || err.cause?.code === "ECONNREFUSED") {
-    const host = readOllamaHostFromConfig();
+    const baseUrl = readBaseUrlFromConfig();
     stream.markdown(
       vscode.l10n.t(
-        // we use a placeholder to identify error messages
-        // this placeholder will be ignored by markdown rendering
-        HIDDEN_ERROR_MESSAGE_PLACEHOLDER+"I'm sorry, I cannot connect to the Ollama server.\n\n"+
-        "Please check the following:\n\n"+
-        `- The Ollama app is installed and running. Visit [ollama.com](https://ollama.com) for more details.\n`+
-        `- The Ollama server is running at [${host}](${host})\n`+
-        "- The Ollama server URL is correct in your [settings.json](https://code.visualstudio.com/docs/getstarted/settings): `deepseek.ollama.host` \n"+
-        "- The Ollama server is accessible from this network.\n\n"+
-        `Here is the error message: \`${err.message} (code: ${(err.code || err.cause?.code) || 'UNKNOWN'})\``
+        HIDDEN_ERROR_MESSAGE_PLACEHOLDER+
+        "OpenAI API 连接失败\n\n"+
+        "请检查以下内容：\n\n"+
+        "- 是否正确配置了 OpenAI API Key\n"+
+        `- API 服务器 [${baseUrl}](${baseUrl}) 是否可访问\n`+
+        "- 配置文件 [settings.json](https://code.visualstudio.com/docs/getstarted/settings) 中的设置是否正确\n\n"+
+        `错误信息：\`${err.message} (错误代码：${(err.code || err.cause?.code) || '未知'})\``
       )
     );
   }
   else {
     stream.markdown(
       vscode.l10n.t(
-        "I'm sorry, I can't help with that. Can I help with something else?"
+        "抱歉，我遇到了一些问题。需要帮助吗？"
       )
     );
   }
-
 }
 
 function appendAssistantHistory(context: vscode.ChatContext) {
@@ -194,24 +173,23 @@ function appendAssistantHistory(context: vscode.ChatContext) {
   return messages;
 }
 
-async function* streamResponse(ollama: Ollama, model: string, messages: Message[], tools: any) {
+async function* streamResponse(
+  client: OpenAI,
+  model: string,
+  messages: Message[],
+  tools: any
+) {
   try {
     console.log("Using model:", model);
-    console.log(`${readOllamaHostFromConfig()}/api/chat`);
     console.log({ messages });
-    console.log({ tools });
 
-    const response = await ollama.chat({
+    const stream = await client.chat.completions.create({
       model,
       messages,
-      
-      // TODO: enable function calls when DeepSeek supports it
-      // tools,
-
       stream: true,
     });
 
-    for await (const chunk of response) {
+    for await (const chunk of stream) {
       yield chunk;
     }
   } catch (err: any) {
@@ -224,7 +202,7 @@ async function registerParticipant(context: vscode.ExtensionContext) {
     AGENT_PARTICIPANT_ID,
     agentHandler
   );
-  agent.iconPath = vscode.Uri.joinPath(context.extensionUri, "deepseek.png");
+  agent.iconPath = vscode.Uri.joinPath(context.extensionUri, "openai.png");
 
   context.subscriptions.push(
     agent.onDidReceiveFeedback((feedback: vscode.ChatResultFeedback) => {
